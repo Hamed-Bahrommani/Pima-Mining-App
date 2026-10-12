@@ -1,0 +1,44 @@
+# Values transcribed from Nahzat & Yağanoğlu (2021), Tables 3–5.
+# These are publication references only. They must never be merged into the
+# app's computed predictions or metric calculations.
+source:
+  title: "Diabetes Prediction Using Machine Learning Classification Algorithms"
+  authors: "Shamriz Nahzat; Mete Yağanoğlu"
+  year: 2021
+  journal: "European Journal of Science and Technology, Special Issue 24, pp. 53–59"
+  doi: "10.31590/ejosat.899716"
+  values_unit: "percent"
+
+configurations:
+  "10":
+    paper_table: 3
+    description: "8 original predictors + 2 engineered binary features"
+    metrics:
+      KNN: {accuracy: 81.0, precision: 80.0, recall: 77.0, f1: 78.0}
+      RF:  {accuracy: 88.31, precision: 88.0, recall: 86.0, f1: 87.0}
+      SVM: {accuracy: 77.0, precision: 74.0, recall: 74.0, f1: 74.0}
+      ANN: {accuracy: 86.0, precision: 85.0, recall: 85.0, f1: 85.0}
+      DT:  {accuracy: 84.0, precision: 82.0, recall: 81.0, f1: 82.0}
+  "8":
+    paper_table: 4
+    description: "8 original predictors; no engineered features"
+    metrics:
+      KNN: {accuracy: 82.0, precision: 80.0, recall: 79.0, f1: 80.0}
+      RF:  {accuracy: 87.0, precision: 86.0, recall: 85.0, f1: 85.0}
+      SVM: {accuracy: 77.0, precision: 75.0, recall: 75.0, f1: 75.0}
+      ANN: {accuracy: 82.0, precision: 81.0, recall: 80.0, f1: 80.0}
+      DT:  {accuracy: 83.0, precision: 82.0, recall: 81.0, f1: 81.0}
+  "6":
+    paper_table: 5
+    description: "6 original predictors; excludes SkinThickness and DiabetesPedigreeFunction"
+    metrics:
+      KNN: {accuracy: 83.0, precision: 81.0, recall: 80.0, f1: 81.0}
+      RF:  {accuracy: 88.0, precision: 88.0, recall: 86.0, f1: 87.0}
+      SVM: {accuracy: 78.0, precision: 76.0, recall: 76.0, f1: 76.0}
+      ANN: {accuracy: 83.0, precision: 81.0, recall: 80.0, f1: 81.0}
+      DT:  {accuracy: 84.0, precision: 82.0, recall: 81.0, f1: 81.0}
+
+notes:
+  - "The article does not fully specify its split seed, model hyperparameters, or normalization method."
+  - "Metric averaging conventions are not stated clearly; do not assume the reported values are macro averages or positive-class averages."
+  - "These reference values are distinct from any metrics computed by this application."
