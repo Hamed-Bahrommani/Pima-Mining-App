@@ -4,7 +4,14 @@ import pandas as pd
 import pytest
 
 from src.config import ALL_COLUMNS, FEATURE_COLUMNS, TARGET_COLUMN
-from src.data import DatasetValidationError, replace_invalid_zeros, validate_dataset
+from src.data import (
+    DatasetValidationError,
+    load_dataset,
+    replace_invalid_zeros,
+    split_features_target,
+    validate_dataset,
+)
+
 
 
 def sample_frame(rows: int = 12) -> pd.DataFrame:
@@ -82,6 +89,77 @@ def test_headerless_csv_loader(tmp_path) -> None:
     frame = reference_shape_frame()
     path = tmp_path / "pima.csv"
     frame.to_csv(path, header=False, index=False)
-    loaded = __import__("src.data", fromlist=["load_dataset"]).load_dataset(path)
+    loaded = load_dataset(path)
     assert loaded.shape == (768, 9)
     assert loaded["Outcome"].value_counts().to_dict() == {0: 500, 1: 268}
+
+
+def test_validator_rejects_non_binary_target() -> None:
+    frame = sample_frame()
+    frame.loc[0, TARGET_COLUMN] = 2
+    with pytest.raises(DatasetValidationError, match="only 0 and 1"):
+        validate_dataset(frame, check_reference_counts=False)
+
+
+def test_validator_rejects_missing_cells() -> None:
+    frame = sample_frame()
+    frame.loc[3, "Glucose"] = float("nan")
+    with pytest.raises(DatasetValidationError, match="blank/NaN"):
+        validate_dataset(frame, check_reference_counts=False)
+
+
+def test_validator_rejects_non_numeric_columns() -> None:
+    frame = sample_frame()
+    frame["Glucose"] = frame["Glucose"].astype(str)
+    with pytest.raises(DatasetValidationError, match="must be numeric"):
+        validate_dataset(frame, check_reference_counts=False)
+
+
+def test_validator_rejects_wrong_or_missing_column_names() -> None:
+    renamed = sample_frame().rename(columns={"Glucose": "Glucose_mg"})
+    with pytest.raises(DatasetValidationError, match="columns/order"):
+        validate_dataset(renamed, check_reference_counts=False)
+    dropped = sample_frame().drop(columns=["Age"])
+    with pytest.raises(DatasetValidationError, match="columns/order"):
+        validate_dataset(dropped, check_reference_counts=False)
+
+
+def test_validator_rejects_empty_dataset() -> None:
+    with pytest.raises(DatasetValidationError, match="empty"):
+        validate_dataset(sample_frame().iloc[0:0], check_reference_counts=False)
+
+
+def test_reference_check_rejects_wrong_row_count() -> None:
+    frame = reference_shape_frame().iloc[:-1]
+    with pytest.raises(DatasetValidationError, match="Expected 768 rows"):
+        validate_dataset(frame)
+
+
+def test_split_features_target_separates_outcome() -> None:
+    X, y = split_features_target(sample_frame())
+    assert list(X.columns) == list(FEATURE_COLUMNS)
+    assert y.name == TARGET_COLUMN
+    assert set(y.unique()) <= {0, 1}
+
+
+def test_loader_reports_missing_file(tmp_path) -> None:
+    with pytest.raises(FileNotFoundError, match="fetch_data.py"):
+        load_dataset(tmp_path / "missing.csv")
+
+
+def test_loader_rejects_csv_with_extra_columns(tmp_path) -> None:
+    frame = reference_shape_frame()
+    frame.insert(0, "RowId", range(len(frame)))
+    path = tmp_path / "wide.csv"
+    frame.to_csv(path, header=False, index=False)
+    with pytest.raises(DatasetValidationError):
+        load_dataset(path)
+
+
+def test_loader_rejects_csv_with_missing_columns(tmp_path) -> None:
+    frame = reference_shape_frame().iloc[:, :-1]
+    path = tmp_path / "narrow.csv"
+    frame.to_csv(path, header=False, index=False)
+    with pytest.raises(DatasetValidationError, match="Expected 9 columns"):
+        load_dataset(path)
+

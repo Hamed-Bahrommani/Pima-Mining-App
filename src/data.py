@@ -89,9 +89,15 @@ def load_dataset(
         )
 
     try:
-        frame = pd.read_csv(csv_path, header=None, names=ALL_COLUMNS)
+        frame = pd.read_csv(csv_path, header=None)
     except (pd.errors.ParserError, UnicodeDecodeError) as exc:
         raise DatasetValidationError(f"Could not parse dataset CSV: {exc}") from exc
+
+    if frame.shape[1] != len(ALL_COLUMNS):
+        raise DatasetValidationError(
+            f"Expected {len(ALL_COLUMNS)} columns, found {frame.shape[1]}."
+        )
+    frame.columns = list(ALL_COLUMNS)
 
     validate_dataset(frame, check_reference_counts=check_reference_counts)
     return frame
