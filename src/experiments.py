@@ -1,20 +1,73 @@
 """Reproducible train/test experiments for the diabetes classifiers."""
 
-from sklearn.metrics import (
-    accuracy_score,
-    precision_score,
-    recall_score,
-    f1_score,
-)
+
+"""Reproducible train/test experiments for the diabetes classifiers."""
+
 from sklearn.model_selection import train_test_split
 
-from src.config import RANDOM_STATE
+from src.config import RANDOM_STATE, TARGET_COLUMN
 from src.models import get_models, model_requires_scaling
 from src.pipeline import build_pipeline
 from src.data import load_dataset
-from src.config import TARGET_COLUMN
+from src.evaluation import (
+    cross_validate_experiment,
+    evaluate_predictions,
+    get_positive_scores,
+    select_f1_threshold,
+    tune_experiment,
+)
 
-from src.evaluation import cross_validate_experiment
+
+
+
+
+def _evaluate_split(
+    X_train,
+    X_test,
+    y_train,
+    y_test,
+    *,
+    model_name,
+    feature_config,
+    test_size,
+    estimator_params=None,
+):
+    """Fit on training rows, select a threshold there, and evaluate held-out rows."""
+    models = get_models()
+    pipeline = build_pipeline(
+        estimator=models[model_name],
+        feature_config=feature_config,
+        scale_features=model_requires_scaling(model_name),
+    )
+
+    if estimator_params:
+        pipeline.set_params(**estimator_params)
+
+    threshold_result = select_f1_threshold(
+        X_train,
+        y_train,
+        estimator=pipeline,
+        folds=5,
+    )
+
+    pipeline.fit(X_train, y_train)
+    test_scores = get_positive_scores(pipeline, X_test)
+    predictions = (
+        test_scores >= threshold_result["threshold"]
+    ).astype(int)
+
+    return {
+        "model": model_name,
+        "feature_config": str(feature_config),
+        "test_size": test_size,
+        "train_rows": len(X_train),
+        "test_rows": len(X_test),
+        **evaluate_predictions(y_test, predictions),
+        "threshold": threshold_result["threshold"],
+        "threshold_training_oof_f1": threshold_result["training_oof_f1"],
+        "score_method": threshold_result["score_method"],
+        "pipeline": pipeline,
+    }
 
 
 def run_experiment(
@@ -25,11 +78,7 @@ def run_experiment(
     feature_config="10",
     test_size=0.30,
 ):
-    """Fit one classifier and evaluate it on a stratified held-out test set.
-
-    X must contain original predictor columns only, and y the Outcome labels.
-    Preprocessing is fitted on training rows only.
-    """
+    """Fit one classifier and evaluate it on a stratified held-out test set."""
     models = get_models()
 
     if model_name not in models:
@@ -49,32 +98,16 @@ def run_experiment(
         stratify=y,
     )
 
-    pipeline = build_pipeline(
-        estimator=models[model_name],
+    return _evaluate_split(
+        X_train,
+        X_test,
+        y_train,
+        y_test,
+        model_name=model_name,
         feature_config=feature_config,
-        scale_features=model_requires_scaling(model_name),
+        test_size=test_size,
     )
-    pipeline.fit(X_train, y_train)
-    predictions = pipeline.predict(X_test)
 
-    return {
-        "model": model_name,
-        "feature_config": str(feature_config),
-        "test_size": test_size,
-        "train_rows": len(X_train),
-        "test_rows": len(X_test),
-        "accuracy": accuracy_score(y_test, predictions),
-        "precision_positive": precision_score(
-            y_test, predictions, pos_label=1, zero_division=0
-        ),
-        "recall_positive": recall_score(
-            y_test, predictions, pos_label=1, zero_division=0
-        ),
-        "f1_positive": f1_score(
-            y_test, predictions, pos_label=1, zero_division=0
-        ),
-        "pipeline": pipeline,
-    }
 
 
 def run_default_experiment(
@@ -97,6 +130,9 @@ def run_default_experiment(
     )
 
 
+
+
+
 def compare_experiments(
     X,
     y,
@@ -106,47 +142,82 @@ def compare_experiments(
     test_size=0.30,
     folds=5,
 ):
-    """Compare models and feature sets using CV and held-out test metrics."""
+    """Compare classifiers using training-only tuning and threshold selection."""
     import pandas as pd
 
-    if model_names is None:
-        model_names = tuple(get_models())
+    if not 0 < test_size < 1:
+        raise ValueError("test_size must be between 0 and 1.")
+    if len(X) != len(y):
+        raise ValueError("X and y must contain the same number of rows.")
+    if folds < 2:
+        raise ValueError("folds must be at least 2.")
 
     available_models = get_models()
+    if model_names is None:
+        model_names = tuple(available_models)
+
     unknown_models = set(model_names) - set(available_models)
     if unknown_models:
         raise ValueError(f"Unknown models: {sorted(unknown_models)}")
+
+    X_train, X_test, y_train, y_test = train_test_split(
+        X,
+        y,
+        test_size=test_size,
+        random_state=RANDOM_STATE,
+        stratify=y,
+    )
 
     results = []
 
     for feature_config in feature_configs:
         for model_name in model_names:
+            # Each outer CV fold performs its own training-only threshold
+            # selection; RF and ANN also tune within each outer training fold.
             cv_result = cross_validate_experiment(
-                X,
-                y,
+                X_train,
+                y_train,
                 model_name=model_name,
                 feature_config=feature_config,
                 folds=folds,
+                tune_hyperparameters=model_name in {"random_forest", "ann"},
             )
 
-            test_result = run_experiment(
-                X,
-                y,
+            estimator_params = None
+
+            if model_name in {"random_forest", "ann"}:
+                tuned_model = tune_experiment(
+                    X_train,
+                    y_train,
+                    model_name=model_name,
+                    feature_config=feature_config,
+                    folds=folds,
+                )
+                estimator_params = tuned_model["best_params"]
+
+            test_result = _evaluate_split(
+                X_train,
+                X_test,
+                y_train,
+                y_test,
                 model_name=model_name,
                 feature_config=feature_config,
                 test_size=test_size,
+                estimator_params=estimator_params,
             )
+
+            if model_name in {"random_forest", "ann"}:
+                test_result["best_params"] = estimator_params
 
             row = {
                 **cv_result,
                 **{
                     f"test_{key}": value
                     for key, value in test_result.items()
-                    if key not in {"pipeline", "model", "feature_config", "test_size"}
+                    if key not in {"pipeline", "model", "feature_config"}
                 },
             }
             results.append(row)
 
     return pd.DataFrame(results)
-
 

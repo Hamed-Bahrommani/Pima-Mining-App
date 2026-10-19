@@ -200,10 +200,12 @@ with data_tab:
 
 # ------------------------------------------------------ experiment explorer
 st.header("Experiment explorer")
+
 st.caption(
     "Compare classifiers across feature configurations using stratified "
-    "cross-validation and a held-out test split."
+    "cross-validation on the training partition and a shared held-out test set."
 )
+
 
 st.subheader("Configuration")
 if can_run:
@@ -215,28 +217,33 @@ if can_run:
 else:
     st.warning("Select at least one feature configuration and one classifier.")
 
+
 if run_button:
     X = dataset.drop(columns=[TARGET_COLUMN])
     y = dataset[TARGET_COLUMN]
 
-    with st.spinner("Running experiments… this may take a little while."):
-        try:
+    try:
+        with st.spinner(
+            "Comparing classifiers and optimizing selected models..."
+        ):
             with warnings.catch_warnings(record=True) as caught:
                 warnings.simplefilter("always")
+
                 results = compare_experiments(
                     X,
                     y,
-                    feature_configs=tuple(feature_configs),
-                    model_names=tuple(selected_models),
+                    feature_configs=feature_configs,
+                    model_names=selected_models,
+                    test_size=0.30,
                     folds=folds,
                 )
-        except (ValueError, RuntimeError) as exc:
-            st.error(f"The comparison could not be completed: {exc}")
-            st.stop()
 
-    st.session_state["experiment_results"] = results
-    st.session_state["experiment_folds"] = folds
-    st.session_state["experiment_warnings"] = summarize_warnings(caught)
+        st.session_state["experiment_results"] = results
+        st.session_state["experiment_folds"] = folds
+        st.session_state["experiment_warnings"] = summarize_warnings(caught)
+
+    except (ValueError, RuntimeError) as exc:
+        st.error(f"Experiment failed: {exc}")
 
 st.subheader("Results")
 
@@ -294,16 +301,23 @@ if "experiment_results" in st.session_state:
             },
         },
     )
+    
     st.caption(
-        "F1, precision and recall are for class 1 (Outcome 1, the positive class). "
-        "SD is the standard deviation across folds. CV columns come from stratified "
-        "k-fold cross-validation; Test columns come from a separate train/test split."
+        "CV accuracy and CV F1 are means across training-partition folds; "
+        "their SD columns show fold-to-fold variability. Test metrics are "
+        "calculated on the shared held-out test partition. Precision, recall, "
+        "and F1 use class 1 (Outcome 1) as the positive class. CV results "
+        "guide model comparison; the held-out test results provide a separate "
+        "evaluation."
     )
+
+    
     st.markdown(
-        '<p class="notice">Cross-validation is currently computed over the '
-        "full dataset, while the test metrics use a separate train/test split. "
-        "The two sets of numbers are therefore not independent evaluations; "
-        "treat them as exploratory comparisons, not a final benchmark.</p>",
+        '<p class="notice">Cross-validation uses only the training partition. '
+        "All classifiers and feature configurations share the same held-out "
+        "test partition, which is reserved for final evaluation. Results are "
+        "exploratory comparisons; small differences between models should not "
+        "be overinterpreted.</p>",
         unsafe_allow_html=True,
     )
 

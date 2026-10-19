@@ -5,6 +5,9 @@ import pytest
 
 from src.config import FEATURE_COLUMNS, TARGET_COLUMN
 from src.experiments import run_experiment
+import src.experiments as experiments
+from sklearn.model_selection import train_test_split
+from src.config import RANDOM_STATE
 
 
 @pytest.fixture
@@ -102,3 +105,96 @@ def test_compare_experiments_rejects_unknown_model(small_dataset):
         compare_experiments(X, y, model_names=("not_a_model",))
 
         
+
+def test_compare_experiments_keeps_test_partition_out_of_cv(
+    small_dataset, monkeypatch
+):
+    X, y = small_dataset
+
+    expected_X_train, expected_X_test, expected_y_train, expected_y_test = (
+        train_test_split(
+            X,
+            y,
+            test_size=0.30,
+            random_state=RANDOM_STATE,
+            stratify=y,
+        )
+    )
+
+    cv_calls = []
+    test_partitions = []
+
+    def fake_cross_validate(
+        X_cv,
+        y_cv,
+        *,
+        model_name,
+        feature_config,
+        folds,
+        tune_hyperparameters=False,
+        estimator_params=None,
+    ):
+        cv_calls.append((set(X_cv.index), set(y_cv.index)))
+        return {
+            "model": model_name,
+            "feature_config": str(feature_config),
+            "accuracy_mean": 0.75,
+            "accuracy_std": 0.01,
+        }
+
+    original_evaluate_split = experiments._evaluate_split
+
+    def recording_evaluate_split(
+        X_train,
+        X_test,
+        y_train,
+        y_test,
+        **kwargs,
+    ):
+        test_partitions.append(
+            (set(X_train.index), set(X_test.index))
+        )
+        return original_evaluate_split(
+            X_train,
+            X_test,
+            y_train,
+            y_test,
+            **kwargs,
+        )
+
+    monkeypatch.setattr(
+        experiments, "cross_validate_experiment", fake_cross_validate
+    )
+    monkeypatch.setattr(
+        experiments, "_evaluate_split", recording_evaluate_split
+    )
+
+    result = experiments.compare_experiments(
+        X,
+        y,
+        feature_configs=("6", "10"),
+        model_names=("knn", "random_forest"),
+        folds=3,
+    )
+
+    expected_train_indices = set(expected_X_train.index)
+    expected_test_indices = set(expected_X_test.index)
+
+    assert len(result) == 4
+    assert len(cv_calls) == 4
+    assert len(test_partitions) == 4
+
+    # Every CV call receives training rows only.
+    for X_indices, y_indices in cv_calls:
+        assert X_indices == expected_train_indices
+        assert y_indices == set(expected_y_train.index)
+        assert X_indices.isdisjoint(expected_test_indices)
+
+    # Every model/configuration uses the same held-out test rows.
+    for train_indices, test_indices in test_partitions:
+        assert train_indices == expected_train_indices
+        assert test_indices == expected_test_indices
+        assert train_indices.isdisjoint(test_indices)
+
+    assert set(expected_y_test.index) == expected_test_indices
+
