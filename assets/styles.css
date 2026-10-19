@@ -1,0 +1,50 @@
+:root {
+  --bg: #171A1F;
+  --surface: #252A30;
+  --text: #F1F3F5;
+  --text-2: #C4C9CE;
+  --muted: #9299A1;
+  --border: #363C44;
+  --accent: #83A9E6;
+  --font: "Manrope", "Estedad", "Segoe UI", system-ui, sans-serif;
+}
+
+/* Typography: set on text elements only, never "*", so icon fonts keep working. */
+.stApp, .stApp p, .stApp li, .stApp label, .stApp h1, .stApp h2,
+.stApp h3, .stApp h4, .stApp button, .stApp input, .stApp textarea {
+  font-family: var(--font);
+}
+.stApp h1, .stApp h2, .stApp h3 { letter-spacing: -0.01em; color: var(--text); }
+.stApp h2 { font-size: 1.5rem; font-weight: 600; padding-bottom: 0.4rem; border-bottom: 1px solid var(--border); }
+.stApp h3 { font-size: 1.05rem; font-weight: 600; color: var(--text-2); }
+
+[data-testid="stHeader"] { background: transparent; }
+[data-testid="stMainBlockContainer"], .block-container { max-width: 1200px; padding-top: 2.5rem; }
+[data-testid="stSidebar"] { border-right: 1px solid var(--border); }
+hr { border-color: var(--border); }
+
+/* Metrics: flat, aligned, no card */
+[data-testid="stMetric"] { border-left: 2px solid var(--border); padding: 0.25rem 0 0.25rem 0.9rem; }
+[data-testid="stMetricLabel"] { color: var(--muted); font-size: 0.72rem; letter-spacing: 0.06em; text-transform: uppercase; }
+[data-testid="stMetricValue"] { color: var(--text); font-weight: 600; font-variant-numeric: tabular-nums; }
+
+/* Primary button: dark text, because white on #83A9E6 fails contrast */
+[data-testid="stBaseButton-primary"], button[kind="primary"] { border: 1px solid var(--accent); font-weight: 600; }
+[data-testid="stBaseButton-primary"] p, button[kind="primary"] p { color: #12151A; }
+
+/* Tabs */
+button[data-baseweb="tab"] { color: var(--muted); }
+button[data-baseweb="tab"][aria-selected="true"] { color: var(--text); }
+[data-baseweb="tab-highlight"] { background-color: var(--accent); }
+
+/* Alerts, expanders, tables */
+[data-testid="stAlert"], [data-testid="stExpander"] details { border: 1px solid var(--border); border-radius: 4px; }
+[data-testid="stTable"] th { color: var(--muted); font-weight: 600; }
+
+/* Header and note classes used by app.py */
+.app-eyebrow { color: var(--accent); font-size: 0.75rem; font-weight: 600; letter-spacing: 0.12em; margin: 0 0 0.4rem; text-transform: uppercase; }
+.app-title { color: var(--text); font-size: 2rem; font-weight: 700; letter-spacing: -0.02em; line-height: 1.2; margin: 0; }
+.app-subtitle { color: var(--text-2); line-height: 1.55; margin: 0.5rem 0 0; max-width: 46rem; }
+.section-note { color: var(--muted); font-size: 0.85rem; }
+.notice { border-left: 2px solid var(--accent); color: var(--text-2); padding: 0.2rem 0 0.2rem 0.9rem; }
+.rtl { direction: rtl; font-family: "Estedad", var(--font); text-align: right; }

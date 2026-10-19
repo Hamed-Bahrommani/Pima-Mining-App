@@ -20,6 +20,8 @@ def get_models():
         "svm": SVC(),
         "ann": MLPClassifier(
             random_state=RANDOM_STATE,
+            alpha=0.01,
+            tol=1e-3,
             max_iter=1000,
         ),
         "decision_tree": DecisionTreeClassifier(

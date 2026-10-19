@@ -12,6 +12,15 @@ from src.config import DATA_PATH, F9_COLUMN, F10_COLUMN, ZERO_AS_MISSING_COLUMNS
 from src.data import load_dataset, sha256_file, split_features_target
 from src.pipeline import build_pipeline
 
+import warnings
+
+from sklearn.base import clone
+from sklearn.exceptions import ConvergenceWarning
+from sklearn.model_selection import train_test_split
+
+from src.config import RANDOM_STATE
+from src.models import get_models, model_requires_scaling
+
 pytestmark = pytest.mark.skipif(
     not DATA_PATH.exists(),
     reason="Real Pima CSV not downloaded (run python scripts/fetch_data.py)",
@@ -75,4 +84,20 @@ def test_real_data_engineered_features_are_consistent() -> None:
     assert set(transformed[F9_COLUMN].unique()) <= {0, 1}
     assert (transformed[F9_COLUMN] <= transformed[F10_COLUMN]).all()  # F9 implies F10
     assert (transformed[F10_COLUMN] == (transformed["BloodPressure"] > 80)).all()
+
+
+def test_ann_converges_on_the_training_split() -> None:
+    X, y = split_features_target(load_dataset())
+    X_train, _X_test, y_train, _y_test = train_test_split(
+        X, y, test_size=0.30, random_state=RANDOM_STATE, stratify=y
+    )
+    for config in ("6", "8", "10"):
+        pipeline = build_pipeline(
+            clone(get_models()["ann"]),
+            feature_config=config,
+            scale_features=model_requires_scaling("ann"),
+        )
+        with warnings.catch_warnings():
+            warnings.simplefilter("error", ConvergenceWarning)  # fail on non-convergence
+            pipeline.fit(X_train, y_train)
 
