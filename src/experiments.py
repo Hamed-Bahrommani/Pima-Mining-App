@@ -1,8 +1,5 @@
 """Reproducible train/test experiments for the diabetes classifiers."""
 
-
-"""Reproducible train/test experiments for the diabetes classifiers."""
-
 from sklearn.model_selection import train_test_split
 
 from src.config import RANDOM_STATE, TARGET_COLUMN
@@ -180,7 +177,7 @@ def compare_experiments(
                 model_name=model_name,
                 feature_config=feature_config,
                 folds=folds,
-                tune_hyperparameters=model_name in {"random_forest", "ann"},
+                tune_hyperparameters=False,
             )
 
             estimator_params = None

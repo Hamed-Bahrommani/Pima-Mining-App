@@ -315,20 +315,20 @@ def tune_experiment(
     if model_name == "random_forest":
         param_grid = {
             "model__n_estimators": [100, 200],
-            "model__max_depth": [None, 10, 20],
-            "model__min_samples_leaf": [1, 2, 4],
+            "model__max_depth": [None, 10],
+            "model__min_samples_leaf": [1, 2],
         }
     else:
         param_grid = {
-            "model__hidden_layer_sizes": [(50,), (100,), (50, 25)],
-            "model__alpha": [0.001, 0.01, 0.1],
-            "model__learning_rate_init": [0.001, 0.01],
+            "model__hidden_layer_sizes": [(50,), (50, 25)],
+            "model__alpha": [0.001, 0.01],
+            "model__learning_rate_init": [0.001],
         }
 
     cv = StratifiedKFold(
-        n_splits=folds,
-        shuffle=True,
-        random_state=RANDOM_STATE,
+    n_splits=min(folds, 3),
+    shuffle=True,
+    random_state=RANDOM_STATE,
     )
 
     search = GridSearchCV(
