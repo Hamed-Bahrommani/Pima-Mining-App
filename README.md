@@ -6,21 +6,28 @@ The goal is to build a reproducible experiment explorer for five classifiers and
 
 ## Project status
 
-**Current milestone: Data validation and preprocessing foundation**
+**Current milestone: Experiment implementation and methodology validation**
 
-Implemented and tested:
+Implemented components include:
 
-- Central dataset schema and feature-configuration definitions.
-- Dataset validation for the expected 768-row, nine-column Pima Indians Diabetes CSV.
-- Validation of the expected class distribution: 500 records with `Outcome=0` and 268 with `Outcome=1`.
-- Explicit zero-to-missing conversion for `Glucose`, `BloodPressure`, `SkinThickness`, `Insulin`, and `BMI` only.
-- F9/F10 engineered-feature transformer.
-- A scikit-learn preprocessing pipeline that fits median imputation, and optional scaling, on training data only.
-- Tests for dataset integrity, preprocessing behavior, engineered features, and feature configurations.
+- Dataset loading and validation.
+- Preprocessing with zero-to-missing conversion and training-only imputation.
+- Engineered features F9 and F10.
+- A Streamlit interface for dataset exploration and experiment configuration.
+- Five classifiers and three feature configurations.
+- Configurable cross-validation folds and held-out test evaluation.
+- Results tables, accuracy charts, and visible warnings.
+- A paper-protocol diagnostic investigating the effect of label-informed imputation.
 
-The local dataset has been inspected and its SHA-256 checksum recorded in [`data/README.md`](data/README.md). That file also documents the data provenance and observed zero counts.
+The paper-protocol diagnostic and its findings are documented in
+[`reference/methodology_decisions.md`](reference/methodology_decisions.md).
+Per-split results are saved in
+[`results/paper_protocol_diagnostic.csv`](results/paper_protocol_diagnostic.csv).
 
-The project is being developed in stages. The Streamlit interface, model registry, experiment runner, metrics presentation, and published-reference-results display remain subsequent milestones unless their implementation has been verified separately.
+The application is an educational research prototype, not a clinical
+diagnostic tool. Results produced by this application are not assumed to
+replicate the paper's results exactly, because the authors' complete
+experimental protocol is not available.
 
 ## Setup
 
@@ -74,7 +81,7 @@ See [`data/README.md`](data/README.md) for the dataset source note, validation r
 - Fit the median imputer on training data only, without using target labels to determine imputation values.
 - Calculate F9 and F10 after imputation. The paper does not specify whether the thresholds were applied before or after imputation; this is the project's documented choice.
 - Use standard scaling for KNN, SVM, and ANN; leave tree-based models unscaled.
-- Use a stratified 70/30 train/test split with a fixed seed, with repeated stratified cross-validation planned for stability analysis.
+- Use a stratified 70/30 train/test split with a fixed seed. Stratified cross-validation on the training partition supports model comparison, and a separate 100-split diagnostic evaluates sensitivity to label-informed imputation.
 - Keep published paper metrics separate from metrics computed from the project's own predictions.
 - Treat the paper's underspecified preprocessing details as limitations, not as established facts. Any sensitivity analysis of label-informed preprocessing must be explicitly identified and kept separate from the primary leakage-safe pipeline.
 

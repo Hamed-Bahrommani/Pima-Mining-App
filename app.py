@@ -3,6 +3,8 @@
 import warnings
 from pathlib import Path
 
+import plotly.express as px
+
 import pandas as pd
 import streamlit as st
 
@@ -51,22 +53,140 @@ def summarize_warnings(caught) -> list[str]:
     return messages
 
 
+
 def accuracy_chart(results: pd.DataFrame, value_column: str) -> None:
+    chart_labels = {
+        "K-Nearest Neighbors": "KNN",
+        "Support Vector Machine": "SVM",
+        "Artificial Neural Network": "ANN",
+    }
+
     chart = results.pivot(
         index="model_label",
         columns="configuration",
         values=value_column,
     )
+
+    chart = chart.rename(index=chart_labels)
+
     chart = chart.reindex(
-        index=[name for name in MODEL_LABELS.values() if name in chart.index],
-        columns=[name for name in CONFIG_ORDER if name in chart.columns],
+        index=[
+            chart_labels.get(name, name)
+            for name in MODEL_LABELS.values()
+            if chart_labels.get(name, name) in chart.index
+        ],
+        columns=[
+            name for name in CONFIG_ORDER
+            if name in chart.columns
+        ],
     )
-    st.bar_chart(
-        chart,
-        color=[CONFIG_COLORS[name] for name in chart.columns],
-        stack=False,
-        horizontal=True,
+
+    # Plotly expects one row per classifier/configuration pair.
+    plot_data = (
+        chart.rename_axis("Classifier")
+        .reset_index()
+        .melt(
+            id_vars="Classifier",
+            var_name="Feature configuration",
+            value_name="Score",
+        )
+        .dropna(subset=["Score"])
     )
+
+    if plot_data.empty:
+        st.info("No chart data available for this comparison.")
+        return
+
+    fig = px.bar(
+        plot_data,
+        x="Score",
+        y="Classifier",
+        color="Feature configuration",
+        barmode="group",
+        orientation="h",
+        category_orders={
+            "Classifier": [
+                chart_labels.get(name, name)
+                for name in MODEL_LABELS.values()
+                if chart_labels.get(name, name)
+                in plot_data["Classifier"].unique()
+            ][::-1],
+            "Feature configuration": CONFIG_ORDER,
+        },
+        color_discrete_map=CONFIG_COLORS,
+        custom_data=["Feature configuration"],
+        labels={
+            "Score": "Score",
+            "Classifier": "",
+            "Feature configuration": "Features",
+        },
+        hover_data={
+            "Score": ":.3f",
+            "Feature configuration": True,
+            "Classifier": True,
+        },
+    )
+
+    fig.update_traces(
+        marker_line_width=0,
+        opacity=0.95,
+        hovertemplate=(
+            "<b>%{y}</b><br>"
+            "%{customdata[0]}<br>"
+            "Score: %{x:.3f}"
+            "<extra></extra>"
+        ),
+    )
+
+    fig.update_layout(
+        template="plotly_dark",
+        paper_bgcolor="rgba(0,0,0,0)",
+        plot_bgcolor="rgba(0,0,0,0)",
+        font=dict(
+            family="Manrope, Estedad, Segoe UI, sans-serif",
+            color="#C4C9CE",
+            size=12,
+        ),
+        xaxis=dict(
+            title=None,
+            range=[0, 1],
+            tickformat=".0%",
+            gridcolor="#363C44",
+            zeroline=False,
+        ),
+        yaxis=dict(
+            title=None,
+            automargin=True,
+            showgrid=False,
+            tickfont=dict(size=12),
+        ),
+        legend=dict(
+            title=None,
+            orientation="h",
+            yanchor="bottom",
+            y=1.01,
+            xanchor="left",
+            x=0,
+            bgcolor="rgba(0,0,0,0)",
+            font=dict(size=11),
+        ),
+        margin=dict(l=8, r=12, t=36, b=12),
+        height=max(300, 76 * len(chart.index)),
+        bargap=0.34,
+        bargroupgap=0.14,
+        hoverlabel=dict(
+            bgcolor="#252A30",
+            bordercolor="#46515E",
+            font_color="#F1F3F5",
+        ),
+    )
+
+    st.plotly_chart(
+        fig,
+        width="stretch",
+        config={"displayModeBar": False},
+    )
+
 
 
 st.set_page_config(
@@ -75,15 +195,21 @@ st.set_page_config(
 )
 load_styles()
 
+
 st.markdown(
-    '<p class="app-eyebrow">Data Mining · Educational research prototype</p>'
+    '<div class="app-header">'
+    '<p class="app-eyebrow"><span class="eyebrow-dot"></span>'
+    'DATA MINING <span class="eyebrow-separator">/</span> '
+    'EDUCATIONAL RESEARCH PROTOTYPE</p>'
     '<h1 class="app-title">Pima Diabetes Experiment Explorer</h1>'
     '<p class="app-subtitle">Compare five classifiers across three feature '
-    "configurations on the Pima Indians Diabetes dataset, following "
-    "Nahzat &amp; Yağanoğlu (2021). This is an educational tool, "
-    "not a diagnostic system.</p>",
+    'configurations on the Pima Indians Diabetes dataset, following '
+    'Nahzat &amp; Yağanoğlu (2021). This is an educational tool, '
+    'not a diagnostic system.</p>'
+    '</div>',
     unsafe_allow_html=True,
 )
+
 
 
 @st.cache_data
@@ -152,11 +278,27 @@ total_rows = len(dataset)
 positive_count = int((dataset[TARGET_COLUMN] == 1).sum())
 negative_count = int((dataset[TARGET_COLUMN] == 0).sum())
 
-col1, col2, col3, col4 = st.columns(4)
-col1.metric("Records", f"{total_rows:,}")
-col2.metric("Original predictors", len(FEATURE_COLUMNS))
-col3.metric("Positive outcomes", positive_count)
-col4.metric("Negative outcomes", negative_count)
+
+metric_cols = st.columns(4, gap="medium")
+
+metrics = [
+    ("RECORDS", f"{total_rows:,}", "Dataset size"),
+    ("PREDICTORS", str(len(FEATURE_COLUMNS)), "Original input variables"),
+    ("POSITIVE OUTCOMES", f"{positive_count:,}", "Outcome = 1"),
+    ("NEGATIVE OUTCOMES", f"{negative_count:,}", "Outcome = 0"),
+]
+
+for col, (label, value, description) in zip(metric_cols, metrics):
+    with col:
+        st.markdown(
+            f'<div class="metric-card">'
+            f'<div class="metric-card-label">{label}</div>'
+            f'<div class="metric-card-value">{value}</div>'
+            f'<div class="metric-card-note">{description}</div>'
+            f'</div>',
+            unsafe_allow_html=True,
+        )
+
 
 overview_tab, missing_tab, data_tab = st.tabs(
     ["Outcome distribution", "Zero-value review", "Dataset preview"]
@@ -167,9 +309,49 @@ with overview_tab:
         dataset[TARGET_COLUMN]
         .value_counts()
         .reindex([0, 1], fill_value=0)
-        .rename(index={0: "Outcome 0", 1: "Outcome 1"})
+        .rename(index={0: "Outcome 0 · Negative", 1: "Outcome 1 · Positive"})
     )
-    st.bar_chart(outcome_counts, color=ACCENT)
+
+    outcome_plot = outcome_counts.rename_axis("Outcome").reset_index()
+    outcome_plot.columns = ["Outcome", "Records"]
+    outcome_plot["Outcome"] = outcome_plot["Outcome"].replace({
+        "Outcome 0": "Outcome 0 · Negative",
+        "Outcome 1": "Outcome 1 · Positive",
+    })
+
+    fig = px.bar(
+        outcome_plot,
+        x="Records",
+        y="Outcome",
+        orientation="h",
+        text="Records",
+        color_discrete_sequence=[ACCENT],
+        labels={"Records": "Number of records", "Outcome": ""},
+    )
+
+    fig.update_traces(
+        textposition="outside",
+        cliponaxis=False,
+        hovertemplate="<b>%{y}</b><br>Records: %{x}<extra></extra>",
+    )
+
+    fig.update_layout(
+        template="plotly_dark",
+        paper_bgcolor="rgba(0,0,0,0)",
+        plot_bgcolor="rgba(0,0,0,0)",
+        showlegend=False,
+        xaxis=dict(title=None, gridcolor="#363C44", rangemode="tozero"),
+        yaxis=dict(title=None, showgrid=False, automargin=True),
+        margin=dict(l=12, r=45, t=12, b=12),
+        height=220,
+    )
+
+    st.plotly_chart(
+        fig,
+        width="stretch",
+        config={"displayModeBar": False},
+    )
+
     st.caption(
         "Outcome 0 and Outcome 1 are the dataset's class labels, "
         "not individual medical diagnoses."
@@ -224,7 +406,7 @@ if run_button:
 
     try:
         with st.spinner(
-            "Comparing classifiers and optimizing selected models..."
+            "Comparing classifiers and optimizing selected models. This may take a while..."
         ):
             with warnings.catch_warnings(record=True) as caught:
                 warnings.simplefilter("always")
@@ -262,6 +444,7 @@ if "experiment_results" in st.session_state:
         "Settings above may have changed since this run."
     )
 
+    
     display_columns = [
         "model_label",
         "feature_config",
@@ -279,28 +462,72 @@ if "experiment_results" in st.session_state:
         "model_label": "Classifier",
         "feature_config": "Features",
         "accuracy_mean": "CV accuracy",
-        "accuracy_std": "CV acc. SD",
+        "accuracy_std": "CV SD",
         "f1_positive_mean": "CV F1",
-        "f1_positive_std": "CV F1 SD",
+        "f1_positive_std": "F1 SD",
         "test_accuracy": "Test accuracy",
         "test_precision_positive": "Test precision",
         "test_recall_positive": "Test recall",
         "test_f1_positive": "Test F1",
     })
+
     st.dataframe(
         table,
         hide_index=True,
         width="stretch",
         height=35 * (len(table) + 1) + 3,
         column_config={
-            "Classifier": st.column_config.TextColumn(width="medium"),
-            "Features": st.column_config.TextColumn(width="small"),
-            **{
-                name: st.column_config.NumberColumn(format="%.3f", width="small")
-                for name in table.columns[2:]
-            },
+            "Classifier": st.column_config.TextColumn(
+                width="medium",
+                help="Classification algorithm used.",
+            ),
+            "Features": st.column_config.TextColumn(
+                width="small",
+                help="Number of features used in the experiment.",
+            ),
+            "CV accuracy": st.column_config.NumberColumn(
+                format="%.3f",
+                width="small",
+                help="Mean accuracy across training-partition CV folds.",
+            ),
+            "CV SD": st.column_config.NumberColumn(
+                format="%.3f",
+                width="small",
+                help="Standard deviation of accuracy across CV folds.",
+            ),
+            "CV F1": st.column_config.NumberColumn(
+                format="%.3f",
+                width="small",
+                help="Mean positive-class F1 across CV folds.",
+            ),
+            "F1 SD": st.column_config.NumberColumn(
+                format="%.3f",
+                width="small",
+                help="Standard deviation of positive-class F1 across CV folds.",
+            ),
+            "Test accuracy": st.column_config.NumberColumn(
+                format="%.3f",
+                width="small",
+                help="Accuracy on the held-out test partition.",
+            ),
+            "Test precision": st.column_config.NumberColumn(
+                format="%.3f",
+                width="small",
+                help="Positive-class precision on the held-out test partition.",
+            ),
+            "Test recall": st.column_config.NumberColumn(
+                format="%.3f",
+                width="small",
+                help="Positive-class recall on the held-out test partition.",
+            ),
+            "Test F1": st.column_config.NumberColumn(
+                format="%.3f",
+                width="small",
+                help="Positive-class F1 on the held-out test partition.",
+            ),
         },
     )
+
     
     st.caption(
         "CV accuracy and CV F1 are means across training-partition folds; "
