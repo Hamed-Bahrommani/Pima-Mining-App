@@ -6,7 +6,7 @@ The application uses the headerless nine-column Pima Indians Diabetes CSV:
 
 `data/pima-indians-diabetes.data.csv`
 
-Run `python scripts/fetch_data.py` from the project root to download the public mirror configured in `src/config.py`. The download script validates the expected dimensions and records a SHA-256 checksum.
+Run `python scripts/fetch_data.py` from the project root to download the public mirror configured in `src/config.py`. The download script validates the expected dataset dimensions and records a SHA-256 checksum. The application's dataset loader performs additional schema and class-distribution validation.
 
 ## Source and provenance
 
@@ -42,7 +42,7 @@ The counts above describe the raw CSV. In the modeling pipeline, zero is treated
 
 The observed SHA-256 hash of the local CSV is:
 
-`6BFE5D0F379D17A0E0819B996407E3C09BF80FEBD4287F2ED212190DFFF154AF`
+`6bfe5d0f379d17a0e0819b996407e3c09bf80febd4287f2ed212190dfff154af`
 
 If the file is replaced or downloaded from a different source, recalculate the hash and rerun dataset validation. Do not assume that a replacement file is identical merely because it has the same filename or dimensions.
 

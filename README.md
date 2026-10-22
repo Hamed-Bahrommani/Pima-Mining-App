@@ -19,8 +19,7 @@ Implemented components include:
 - Results tables, accuracy charts, and visible warnings.
 - A paper-protocol diagnostic investigating the effect of label-informed imputation.
 
-The paper-protocol diagnostic and its findings are documented in
-[`reference/methodology_decisions.md`](reference/methodology_decisions.md).
+The paper-protocol diagnostic investigates label-informed imputation using repeated stratified splits, compares the six-, eight-, and ten-feature configurations, and includes a shuffled-label leakage canary. The findings, experimental limitations, and interpretation are documented in [`reference/methodology_decisions.md`](reference/methodology_decisions.md).
 Per-split results are saved in
 [`results/paper_protocol_diagnostic.csv`](results/paper_protocol_diagnostic.csv).
 
@@ -31,7 +30,7 @@ experimental protocol is not available.
 
 ## Setup
 
-Python 3.10 or later is recommended.
+Python 3.10 or later is the stated minimum; the current development environment uses Python 3.14.4. Compatibility across Python versions has not necessarily been verified.
 
 Create and activate a virtual environment, then install the dependencies:
 
@@ -81,7 +80,7 @@ See [`data/README.md`](data/README.md) for the dataset source note, validation r
 - Fit the median imputer on training data only, without using target labels to determine imputation values.
 - Calculate F9 and F10 after imputation. The paper does not specify whether the thresholds were applied before or after imputation; this is the project's documented choice.
 - Use standard scaling for KNN, SVM, and ANN; leave tree-based models unscaled.
-- Use a stratified 70/30 train/test split with a fixed seed. Stratified cross-validation on the training partition supports model comparison, and a separate 100-split diagnostic evaluates sensitivity to label-informed imputation.
+- Use a stratified 70/30 train/test split with a fixed seed.Stratified cross-validation on the training partition supports model comparison. Random Forest and ANN held-out test results use separately tuned hyperparameters, whereas their displayed cross-validation metrics use the default configurations; these metrics are therefore not directly comparable for those two models. A separate 100-split diagnostic evaluates sensitivity to label-informed imputation.
 - Keep published paper metrics separate from metrics computed from the project's own predictions.
 - Treat the paper's underspecified preprocessing details as limitations, not as established facts. Any sensitivity analysis of label-informed preprocessing must be explicitly identified and kept separate from the primary leakage-safe pipeline.
 
