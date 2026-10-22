@@ -40,5 +40,5 @@ configurations:
 
 notes:
   - "The article does not fully specify its split seed, model hyperparameters, or normalization method."
-  - "Metric averaging conventions are not stated clearly; do not assume the reported values are macro averages or positive-class averages."
+  - "Metric averaging is not stated. The Random Forest confusion matrix in Figure 4 ([[139,11],[16,65]], rows = actual) reproduces the reported 88/86/87 precision/recall/F1 under macro averaging; this is an inference from one figure, not a statement about the other rows."
   - "These reference values are distinct from any metrics computed by this application."

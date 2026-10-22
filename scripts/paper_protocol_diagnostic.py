@@ -128,10 +128,20 @@ def main():
     parser.add_argument("--seeds", type=int, default=100)
     parser.add_argument("--config", default="10", choices=sorted(FEATURE_CONFIGS))
     parser.add_argument("--out", default=None, help="optional CSV of per-seed results")
+    parser.add_argument(
+        "--shuffle-labels",
+        action="store_true",
+        help="canary: permute the labels so nothing real can be learned",
+    )
     args = parser.parse_args()
 
     frame = load_dataset(args.data)
     X, y = split_features_target(frame)
+    if args.shuffle_labels:
+        # Canary: labels now carry no information about the features. A leakage-free
+        # pipeline must score near the majority rate; anything far above it is leakage.
+        y = pd.Series(np.random.default_rng(0).permutation(y.to_numpy()), index=y.index)
+        print("SHUFFLED LABELS: accuracy above the majority rate (0.651) is leakage, not signal")
     config = args.config
     print(f"Random Forest (sklearn defaults), {config} features, "
           f"{args.seeds} stratified {int((1 - TEST_SIZE) * 100)}/{int(TEST_SIZE * 100)} splits")
@@ -170,12 +180,15 @@ def main():
             predictions[name] = fit_predict(
                 features.iloc[train_idx], y.iloc[train_idx], features.iloc[test_idx], seed
             )
-        # Rows that had at least one zero (= an imputed value) in the 5 columns.
-        had_zero = (
-            X.iloc[test_idx][list(ZERO_AS_MISSING_COLUMNS)] == 0
-        ).any(axis=1).to_numpy()
+
+        # Rows that had at least one imputed value. leaky_median_8 also imputes
+        # Pregnancies, so it gets its own mask.
+        test_rows = X.iloc[test_idx]
+        zero_5 = (test_rows[list(ZERO_AS_MISSING_COLUMNS)] == 0).any(axis=1).to_numpy()
+        zero_8 = (test_rows[list(FEATURE_COLUMNS)] == 0).any(axis=1).to_numpy()
         truth = y_test.to_numpy()
         for name, predicted in predictions.items():
+            had_zero = zero_8 if name == "leaky_median_8" else zero_5
             correct = predicted == truth
             rows.append({
                 "variant": name,

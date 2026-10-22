@@ -7,6 +7,7 @@ import plotly.express as px
 
 import pandas as pd
 import streamlit as st
+import yaml
 
 from src.config import FEATURE_COLUMNS, TARGET_COLUMN, ZERO_AS_MISSING_COLUMNS
 from src.data import load_dataset
@@ -281,17 +282,38 @@ negative_count = int((dataset[TARGET_COLUMN] == 0).sum())
 
 metric_cols = st.columns(4, gap="medium")
 
+def svg_icon(paths: str) -> str:
+    return (
+        '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" '
+        'stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" '
+        f'focusable="false">{paths}</svg>'
+    )
+
+
+ICON_DATABASE = svg_icon(
+    '<ellipse cx="12" cy="5" rx="9" ry="3"/>'
+    '<path d="M3 5v14a9 3 0 0 0 18 0V5"/>'
+    '<path d="M3 12a9 3 0 0 0 18 0"/>'
+)
+ICON_SLIDERS = svg_icon(
+    '<path d="M21 4h-7M10 4H3M21 12h-9M8 12H3M21 20h-5M12 20H3"/>'
+    '<path d="M14 2v4M8 10v4M16 18v4"/>'
+)
+ICON_CHECK_CIRCLE = svg_icon('<circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/>')
+ICON_MINUS_CIRCLE = svg_icon('<circle cx="12" cy="12" r="10"/><path d="M8 12h8"/>')
+
 metrics = [
-    ("RECORDS", f"{total_rows:,}", "Dataset size"),
-    ("PREDICTORS", str(len(FEATURE_COLUMNS)), "Original input variables"),
-    ("POSITIVE OUTCOMES", f"{positive_count:,}", "Outcome = 1"),
-    ("NEGATIVE OUTCOMES", f"{negative_count:,}", "Outcome = 0"),
+    (ICON_DATABASE, "RECORDS", f"{total_rows:,}", "Dataset size"),
+    (ICON_SLIDERS, "PREDICTORS", str(len(FEATURE_COLUMNS)), "Original input variables"),
+    (ICON_CHECK_CIRCLE, "POSITIVE OUTCOMES", f"{positive_count:,}", "Outcome = 1"),
+    (ICON_MINUS_CIRCLE, "NEGATIVE OUTCOMES", f"{negative_count:,}", "Outcome = 0"),
 ]
 
-for col, (label, value, description) in zip(metric_cols, metrics):
+for col, (icon, label, value, description) in zip(metric_cols, metrics):
     with col:
         st.markdown(
             f'<div class="metric-card">'
+            f'<span class="metric-card-icon" aria-hidden="true">{icon}</span>'
             f'<div class="metric-card-label">{label}</div>'
             f'<div class="metric-card-value">{value}</div>'
             f'<div class="metric-card-note">{description}</div>'
@@ -304,19 +326,14 @@ overview_tab, missing_tab, data_tab = st.tabs(
     ["Outcome distribution", "Zero-value review", "Dataset preview"]
 )
 
-with overview_tab:
-    outcome_counts = (
-        dataset[TARGET_COLUMN]
-        .value_counts()
-        .reindex([0, 1], fill_value=0)
-        .rename(index={0: "Outcome 0 · Negative", 1: "Outcome 1 · Positive"})
-    )
 
-    outcome_plot = outcome_counts.rename_axis("Outcome").reset_index()
-    outcome_plot.columns = ["Outcome", "Records"]
-    outcome_plot["Outcome"] = outcome_plot["Outcome"].replace({
-        "Outcome 0": "Outcome 0 · Negative",
-        "Outcome 1": "Outcome 1 · Positive",
+with overview_tab:
+    outcome_plot = pd.DataFrame({
+        "Outcome": ["Outcome 0 · Negative", "Outcome 1 · Positive"],
+        "Records": [
+            int((dataset[TARGET_COLUMN] == 0).sum()),
+            int((dataset[TARGET_COLUMN] == 1).sum()),
+        ],
     })
 
     fig = px.bar(
@@ -325,11 +342,18 @@ with overview_tab:
         y="Outcome",
         orientation="h",
         text="Records",
-        color_discrete_sequence=[ACCENT],
+        category_orders={
+            "Outcome": [
+                "Outcome 0 · Negative",
+                "Outcome 1 · Positive",
+            ],
+        },
         labels={"Records": "Number of records", "Outcome": ""},
     )
 
     fig.update_traces(
+        marker_color=ACCENT,
+        marker_line_width=0,
         textposition="outside",
         cliponaxis=False,
         hovertemplate="<b>%{y}</b><br>Records: %{x}<extra></extra>",
@@ -339,11 +363,27 @@ with overview_tab:
         template="plotly_dark",
         paper_bgcolor="rgba(0,0,0,0)",
         plot_bgcolor="rgba(0,0,0,0)",
-        showlegend=False,
-        xaxis=dict(title=None, gridcolor="#363C44", rangemode="tozero"),
-        yaxis=dict(title=None, showgrid=False, automargin=True),
+        font=dict(
+            family="Manrope, Estedad, Segoe UI, sans-serif",
+            color="#C4C9CE",
+            size=12,
+        ),
+        xaxis=dict(
+            title=None,
+            showgrid=False,
+            showticklabels=False,
+            zeroline=False,
+            range=[0, 600],
+        ),
+        yaxis=dict(
+            title=None,
+            autorange=True,
+            showgrid=False,
+            tickfont=dict(size=12),
+        ),
         margin=dict(l=12, r=45, t=12, b=12),
-        height=220,
+        height=190,
+        showlegend=False,
     )
 
     st.plotly_chart(
@@ -356,6 +396,7 @@ with overview_tab:
         "Outcome 0 and Outcome 1 are the dataset's class labels, "
         "not individual medical diagnoses."
     )
+
 
 with missing_tab:
     zero_counts = pd.DataFrame({
@@ -544,7 +585,9 @@ if "experiment_results" in st.session_state:
         "All classifiers and feature configurations share the same held-out "
         "test partition, which is reserved for final evaluation. Results are "
         "exploratory comparisons; small differences between models should not "
-        "be overinterpreted.</p>",
+        "be overinterpreted. For Random Forest and ANN, the CV columns use default "
+        "hyperparameters, while the test columns use settings tuned on the "
+        "training partition.</p>",
         unsafe_allow_html=True,
     )
 
@@ -569,3 +612,94 @@ if "experiment_results" in st.session_state:
 
 else:
     st.info("No results yet. Choose your settings in the sidebar, then click **Run comparison**.")
+
+# --------------------------------------------------------- paper comparison
+REFERENCE_DIR = Path(__file__).resolve().parent / "reference"
+DIAGNOSTIC_DIR = Path(__file__).resolve().parent / "results"
+DIAGNOSTIC_FILES = {
+    "6": "diagnostic_results_6.csv",
+    "8": "diagnostic_results_8.csv",
+    "10": "diagnostic_results.csv",
+}
+PAPER_TABLES = {"6": 5, "8": 4, "10": 3}
+
+
+@st.cache_data
+def load_paper_comparison() -> pd.DataFrame:
+    """Paper values (reference file) beside our saved diagnostic runs (Random Forest)."""
+    with open(REFERENCE_DIR / "paper_results.yaml", encoding="utf-8") as handle:
+        paper = yaml.safe_load(handle)
+
+    rows = []
+    for config in ("6", "8", "10"):
+        reference = paper["configurations"][config]["metrics"]["RF"]
+        rows.append({
+            "Features": config,
+            "Source": f"Paper (Table {PAPER_TABLES[config]})",
+            "Accuracy": reference["accuracy"],
+            "Accuracy SD": None,
+            "Precision": reference["precision"],
+            "Recall": reference["recall"],
+            "F1": reference["f1"],
+        })
+        runs = pd.read_csv(DIAGNOSTIC_DIR / DIAGNOSTIC_FILES[config])
+        for variant, label in (
+            ("clean", "Ours · leakage-safe"),
+            ("leaky_median_5", "Ours · label-informed (invalid)"),
+        ):
+            subset = runs[runs["variant"] == variant]
+            rows.append({
+                "Features": config,
+                "Source": label,
+                "Accuracy": 100 * subset["accuracy"].mean(),
+                "Accuracy SD": 100 * subset["accuracy"].std(),
+                "Precision": 100 * subset["macro_precision"].mean(),
+                "Recall": 100 * subset["macro_recall"].mean(),
+                "F1": 100 * subset["macro_f1"].mean(),
+            })
+    return pd.DataFrame(rows)
+
+
+st.header("Paper comparison")
+st.caption(
+    "Random Forest with default parameters and a 0.5 threshold, 100 stratified "
+    "70/30 splits. Paper values are transcribed from Tables 3-5 and are never "
+    "mixed into computed results."
+)
+
+try:
+    comparison = load_paper_comparison()
+except (FileNotFoundError, KeyError, ValueError, yaml.YAMLError) as exc:
+    st.warning(f"Paper comparison is unavailable: {exc}")
+else:
+    percent = lambda help_text: st.column_config.NumberColumn(
+        format="%.1f", help=help_text
+    )
+    st.dataframe(
+        comparison,
+        hide_index=True,
+        width="stretch",
+        height=35 * (len(comparison) + 1) + 3,
+        column_config={
+            "Features": st.column_config.TextColumn(width="small"),
+            "Source": st.column_config.TextColumn(width="large"),
+            "Accuracy": percent("Percent. For our rows, the mean over 100 splits."),
+            "Accuracy SD": percent("Standard deviation of accuracy across the 100 splits."),
+            "Precision": percent("Percent. Ours is macro-averaged."),
+            "Recall": percent("Percent. Ours is macro-averaged."),
+            "F1": percent("Percent. Ours is macro-averaged."),
+        },
+    )
+    st.markdown(
+        '<p class="notice">Leakage-safe rows fit all preprocessing on training '
+        "rows only. Label-informed rows replace zero measurements with per-class "
+        "medians computed on all rows before splitting, one plausible reading of "
+        "the paper's description. That uses the test labels, so it is not a valid "
+        "estimate of performance on new patients. Our precision, recall and F1 are "
+        "macro-averaged; the paper does not state its averaging, but its Random "
+        "Forest confusion matrix (Figure 4) reproduces the reported values under "
+        "macro averaging. These runs show that label-informed preprocessing can "
+        "produce accuracy close to the paper's. They do not show how the authors "
+        "processed their data.</p>",
+        unsafe_allow_html=True,
+    )

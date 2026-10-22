@@ -4,3 +4,4 @@ scikit-learn>=1.4,<2
 streamlit>=1.40,<2
 plotly>=5.20,<7
 pytest>=8,<10
+pyyaml>=6,<7

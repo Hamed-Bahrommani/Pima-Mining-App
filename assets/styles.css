@@ -45,12 +45,15 @@
   margin-bottom: 1rem;
 }
 
+
 .stApp h3 {
-  font-size: 1.05rem;
-  font-weight: 600;
+  font-size: 1.08rem;
+  font-weight: 650;
   color: var(--text-2);
+  letter-spacing: -0.015em;
   margin-bottom: 0.65rem;
 }
+
 
 /* Page layout */
 [data-testid="stHeader"] {
@@ -157,42 +160,55 @@ hr {
   padding: 0.8rem 1rem;
 }
 
-/* Dataset metric cards */
-[data-testid="stMetric"] {
+
+/* Dataset overview metric cards */
+.metric-card {
+  position: relative;
+  min-height: 116px;
+  padding: 1rem 1rem 0.9rem;
+  overflow: hidden;
   background: linear-gradient(
     145deg,
-    var(--surface-raised),
-    var(--surface)
+    var(--surface-raised) 0%,
+    var(--surface) 100%
   );
   border: 1px solid var(--border);
-  border-top: 2px solid var(--border-strong);
-  border-radius: 8px;
-  padding: 1rem 1.05rem;
-  min-height: 112px;
-  transition: border-color 160ms ease;
+  border-top: 2px solid var(--accent);
+  border-radius: 7px;
+  transition: border-color 160ms ease, transform 160ms ease;
 }
 
-[data-testid="stMetric"]:hover {
+.metric-card:hover {
+  border-color: var(--border-strong);
   border-top-color: var(--accent);
+  transform: translateY(-2px);
 }
 
-[data-testid="stMetricLabel"] {
-  color: var(--muted);
-  font-size: 0.72rem;
+.metric-card-label {
+  color: var(--text-2);
+  font-size: 0.7rem;
   font-weight: 650;
-  letter-spacing: 0.075em;
+  letter-spacing: 0.085em;
+  line-height: 1.45;
   text-transform: uppercase;
 }
 
-[data-testid="stMetricValue"] {
+.metric-card-value {
+  margin-top: 0.45rem;
   color: var(--text);
-  font-weight: 700;
+  font-size: 2.05rem;
+  font-weight: 750;
+  line-height: 1.15;
+  letter-spacing: -0.035em;
   font-variant-numeric: tabular-nums;
-  letter-spacing: -0.025em;
 }
 
-[data-testid="stMetricDelta"] {
-  font-size: 0.78rem;
+.metric-card-note {
+  margin-top: 0.4rem;
+  color: var(--muted);
+  font-size: 0.76rem;
+  font-weight: 450;
+  line-height: 1.4;
 }
 
 /* Sidebar and experiment controls */
@@ -403,4 +419,44 @@ button[data-baseweb="tab"][aria-selected="true"] {
   color: var(--muted);
   font-size: 0.75rem;
   line-height: 1.35;
+}
+
+/* Metric card icons */
+.metric-card-icon {
+  position: absolute;
+  top: 0.9rem;
+  right: 0.9rem;
+  width: 18px;
+  height: 18px;
+  color: var(--accent);
+  opacity: 0.85;
+}
+
+.metric-card-icon svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.metric-card:hover .metric-card-icon {
+  opacity: 1;
+}
+
+.metric-card-label {
+  padding-right: 1.6rem;
+}
+
+/* Run button: dark label when enabled, quiet outlined state when disabled */
+[data-testid="stSidebar"] [data-testid="stBaseButton-primary"]:not(:disabled) p {
+  color: #12151A !important;
+}
+
+[data-testid="stSidebar"] [data-testid="stBaseButton-primary"]:disabled {
+  background: var(--surface);
+  border-color: var(--border-strong);
+  opacity: 1;
+}
+
+[data-testid="stSidebar"] [data-testid="stBaseButton-primary"]:disabled p {
+  color: var(--muted) !important;
 }
