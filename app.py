@@ -165,14 +165,15 @@ def accuracy_chart(results: pd.DataFrame, value_column: str) -> None:
             title=None,
             orientation="h",
             yanchor="bottom",
-            y=1.01,
+            y=1.02,
             xanchor="left",
             x=0,
             bgcolor="rgba(0,0,0,0)",
             font=dict(size=11),
+            traceorder="normal",
         ),
-        margin=dict(l=8, r=12, t=36, b=12),
-        height=max(300, 76 * len(chart.index)),
+        margin=dict(l=8, r=12, t=52, b=16),
+        height=max(320, 68 * len(chart.index)),
         bargap=0.34,
         bargroupgap=0.14,
         hoverlabel=dict(
@@ -280,8 +281,6 @@ positive_count = int((dataset[TARGET_COLUMN] == 1).sum())
 negative_count = int((dataset[TARGET_COLUMN] == 0).sum())
 
 
-metric_cols = st.columns(4, gap="medium")
-
 def svg_icon(paths: str) -> str:
     return (
         '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" '
@@ -309,18 +308,20 @@ metrics = [
     (ICON_MINUS_CIRCLE, "NEGATIVE OUTCOMES", f"{negative_count:,}", "Outcome = 0"),
 ]
 
-for col, (icon, label, value, description) in zip(metric_cols, metrics):
-    with col:
-        st.markdown(
-            f'<div class="metric-card">'
-            f'<span class="metric-card-icon" aria-hidden="true">{icon}</span>'
-            f'<div class="metric-card-label">{label}</div>'
-            f'<div class="metric-card-value">{value}</div>'
-            f'<div class="metric-card-note">{description}</div>'
-            f'</div>',
-            unsafe_allow_html=True,
-        )
+cards_html = "".join(
+    f'<div class="metric-card">'
+    f'<span class="metric-card-icon" aria-hidden="true">{icon}</span>'
+    f'<div class="metric-card-label">{label}</div>'
+    f'<div class="metric-card-value">{value}</div>'
+    f'<div class="metric-card-note">{description}</div>'
+    f'</div>'
+    for icon, label, value, description in metrics
+)
 
+st.markdown(
+    f'<div class="metric-grid">{cards_html}</div>',
+    unsafe_allow_html=True,
+)
 
 overview_tab, missing_tab, data_tab = st.tabs(
     ["Outcome distribution", "Zero-value review", "Dataset preview"]
@@ -570,13 +571,16 @@ if "experiment_results" in st.session_state:
     )
 
     
-    st.caption(
+    st.markdown(
+        '<p class="section-note">'
         "CV accuracy and CV F1 are means across training-partition folds; "
         "their SD columns show fold-to-fold variability. Test metrics are "
         "calculated on the shared held-out test partition. Precision, recall, "
         "and F1 use class 1 (Outcome 1) as the positive class. CV results "
         "guide model comparison; the held-out test results provide a separate "
         "evaluation."
+        '</p>',
+        unsafe_allow_html=True,
     )
 
     
